@@ -28,6 +28,7 @@ Example By:
 
 """
 import random
+import time
 
 import simpy
 
@@ -71,7 +72,7 @@ class BroadcastPipe(object):
         return pipe
 
 
-def message_generator(name, env, out_pipe):
+def message_generator(name, env, out_pipe, trust, prev_val):
     """A process which randomly generates messages."""
     while True:
         # wait for next transmission
@@ -84,9 +85,20 @@ def message_generator(name, env, out_pipe):
         # in the pipe first and then message_consumer gets from pipe,
         # the event.triggered will be True in the other order it will be
         # False
-        val = random.randint(0, 20)
-        msg = (env.now, '%s sends %d at %d' % (name, val, env.now))
+        res = ""
+        val = random.randint(1, 20)
+        delta = val - prev_val
+        if abs(delta) <= 10 and trust >= 0.5:
+            res = "Accepted"
+            trust += 0.1
+        else:
+            res = "Ignored"
+            trust -= 0.1
+    
+        msg = (env.now, '%s sends %d at %d: delta = %d trust = %f decision = %s' % (name, val, env.now, delta, trust, res))
         out_pipe.put(msg)
+
+        prev_val = val
 
 
 def message_consumer(name, env, in_pipe):
@@ -110,7 +122,11 @@ def message_consumer(name, env, in_pipe):
         if (name[8] != msg[1][8]):
             print('at time %d: %s received message: %s.' %
                   (env.now, name, msg[1]))
+            print('\n')
+            
+            
         
+        time.sleep(0.5)
         # Process does some other work, which may result in missing messages
         yield env.timeout(random.randint(4, 8))
 
@@ -133,10 +149,10 @@ random.seed(RANDOM_SEED)
 env = simpy.Environment()
 bc_pipe = BroadcastPipe(env)
 
-env.process(message_generator('Replica A', env, bc_pipe))
-env.process(message_generator('Replica B', env, bc_pipe))
-env.process(message_generator('Replica C', env, bc_pipe))
-env.process(message_generator('Replica D', env, bc_pipe))
+env.process(message_generator('Replica A', env, bc_pipe, 0.5, 0))
+env.process(message_generator('Replica B', env, bc_pipe, 0.5, 0))
+env.process(message_generator('Replica C', env, bc_pipe, 0.5, 0))
+env.process(message_generator('Replica D', env, bc_pipe, 0.5, 0))
 env.process(message_consumer('Replica A', env, bc_pipe.get_output_conn()))
 env.process(message_consumer('Replica B', env, bc_pipe.get_output_conn()))
 env.process(message_consumer('Replica C', env, bc_pipe.get_output_conn()))

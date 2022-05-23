@@ -84,7 +84,8 @@ def message_generator(name, env, out_pipe):
         # in the pipe first and then message_consumer gets from pipe,
         # the event.triggered will be True in the other order it will be
         # False
-        msg = (env.now, '%s says hello at %d' % (name, env.now))
+        val = random.randint(0, 20)
+        msg = (env.now, '%s sends %d at %d' % (name, val, env.now))
         out_pipe.put(msg)
 
 
@@ -94,19 +95,22 @@ def message_consumer(name, env, in_pipe):
         # Get event for message pipe
         msg = yield in_pipe.get()
 
-        if msg[0] < env.now:
-            # if message was already put into pipe, then
-            # message_consumer was late getting to it. Depending on what
-            # is being modeled this, may, or may not have some
-            # significance
-            print('LATE Getting Message: at time %d: %s received message: %s' %
-                  (env.now, name, msg[1]))
+        # if msg[0] < env.now:
+        #     # if message was already put into pipe, then
+        #     # message_consumer was late getting to it. Depending on what
+        #     # is being modeled this, may, or may not have some
+        #     # significance
+        #     print('LATE Getting Message: at time %d: %s received message: %s' %
+        #           (env.now, name, msg[1]))
 
-        else:
-            # message_consumer is synchronized with message_generator
+        # else:
+        #     # message_consumer is synchronized with message_generator
+        #     print('at time %d: %s received message: %s.' %
+        #           (env.now, name, msg[1]))
+        if (name[8] != msg[1][8]):
             print('at time %d: %s received message: %s.' %
                   (env.now, name, msg[1]))
-
+        
         # Process does some other work, which may result in missing messages
         yield env.timeout(random.randint(4, 8))
 
@@ -114,12 +118,12 @@ def message_consumer(name, env, in_pipe):
 # Setup and start the simulation
 print('Process communication')
 random.seed(RANDOM_SEED)
-env = simpy.Environment()
+# env = simpy.Environment()
 
-# For one-to-one or many-to-one type pipes, use Store
-pipe = simpy.Store(env)
-env.process(message_generator('Generator A', env, pipe))
-env.process(message_consumer('Consumer A', env, pipe))
+# # For one-to-one or many-to-one type pipes, use Store
+# pipe = simpy.Store(env)
+# env.process(message_generator('Generator A', env, pipe))
+# env.process(message_consumer('Consumer A', env, pipe))
 
 # print('\nOne-to-one pipe communication\n')
 # env.run(until=SIM_TIME)
@@ -129,14 +133,14 @@ env.process(message_consumer('Consumer A', env, pipe))
 env = simpy.Environment()
 bc_pipe = BroadcastPipe(env)
 
-env.process(message_generator('Generator A', env, bc_pipe))
-env.process(message_generator('Generator B', env, bc_pipe))
-env.process(message_generator('Generator C', env, bc_pipe))
-env.process(message_generator('Generator D', env, bc_pipe))
-env.process(message_consumer('Consumer A', env, bc_pipe.get_output_conn()))
-env.process(message_consumer('Consumer B', env, bc_pipe.get_output_conn()))
-env.process(message_consumer('Consumer C', env, bc_pipe.get_output_conn()))
-env.process(message_consumer('Consumer D', env, bc_pipe.get_output_conn()))
+env.process(message_generator('Replica A', env, bc_pipe))
+env.process(message_generator('Replica B', env, bc_pipe))
+env.process(message_generator('Replica C', env, bc_pipe))
+env.process(message_generator('Replica D', env, bc_pipe))
+env.process(message_consumer('Replica A', env, bc_pipe.get_output_conn()))
+env.process(message_consumer('Replica B', env, bc_pipe.get_output_conn()))
+env.process(message_consumer('Replica C', env, bc_pipe.get_output_conn()))
+env.process(message_consumer('Replica D', env, bc_pipe.get_output_conn()))
 
-print('\nOne-to-many pipe communication\n')
+# print('\nOne-to-many pipe communication\n')
 env.run(until=SIM_TIME)

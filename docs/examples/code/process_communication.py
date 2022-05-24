@@ -34,7 +34,7 @@ import simpy
 
 
 RANDOM_SEED = 42
-SIM_TIME = 100
+SIM_TIME = 20
 
 
 class BroadcastPipe(object):
@@ -93,15 +93,16 @@ def message_generator(name, env, out_pipe, trust, prev_val):
             trust += 0.1
         else:
             res = "Ignored"
-            trust -= 0.1
+            if trust >= 0.1:
+                trust -= 0.1
     
-        msg = (env.now, '%s sends %d at %d: delta = %d trust = %f decision = %s' % (name, val, env.now, delta, trust, res))
+        msg = (env.now, '%s sends %d at time %d: delta = %d trust = %f decision = %s' % (name, val, env.now, delta, trust, res))
         out_pipe.put(msg)
 
         prev_val = val
 
 
-def message_consumer(name, env, in_pipe):
+def message_consumer(name, env, in_pipe, val):
     """A process which consumes messages."""
     while True:
         # Get event for message pipe
@@ -119,10 +120,10 @@ def message_consumer(name, env, in_pipe):
         #     # message_consumer is synchronized with message_generator
         #     print('at time %d: %s received message: %s.' %
         #           (env.now, name, msg[1]))
-        if (name[8] != msg[1][8]):
-            print('at time %d: %s received message: %s.' %
-                  (env.now, name, msg[1]))
-            print('\n')
+        split = msg[1].split(" ")
+        val = split[3]
+        if (name[8] != split[1]):
+            print('%s\n%s received message at time %d: Value %s\n.' %(msg[1], name, env.now, val))
             
             
         
@@ -132,7 +133,7 @@ def message_consumer(name, env, in_pipe):
 
 
 # Setup and start the simulation
-print('Process communication')
+print('\nProcess communication\n')
 random.seed(RANDOM_SEED)
 # env = simpy.Environment()
 
@@ -153,10 +154,10 @@ env.process(message_generator('Replica A', env, bc_pipe, 0.5, 0))
 env.process(message_generator('Replica B', env, bc_pipe, 0.5, 0))
 env.process(message_generator('Replica C', env, bc_pipe, 0.5, 0))
 env.process(message_generator('Replica D', env, bc_pipe, 0.5, 0))
-env.process(message_consumer('Replica A', env, bc_pipe.get_output_conn()))
-env.process(message_consumer('Replica B', env, bc_pipe.get_output_conn()))
-env.process(message_consumer('Replica C', env, bc_pipe.get_output_conn()))
-env.process(message_consumer('Replica D', env, bc_pipe.get_output_conn()))
+env.process(message_consumer('Replica A', env, bc_pipe.get_output_conn(), 0))
+env.process(message_consumer('Replica B', env, bc_pipe.get_output_conn(), 0))
+env.process(message_consumer('Replica C', env, bc_pipe.get_output_conn(), 0))
+env.process(message_consumer('Replica D', env, bc_pipe.get_output_conn(), 0))
 
 # print('\nOne-to-many pipe communication\n')
 env.run(until=SIM_TIME)

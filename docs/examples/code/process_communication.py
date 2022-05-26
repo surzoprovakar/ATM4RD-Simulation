@@ -113,6 +113,7 @@ def message_consumer(name, env, in_pipe, value, trust_dict):
 
         requester = split[1]
         req_value = split[3]
+        req_time = split[6]
 
         if (name[8] != requester):
             delta = abs(int(req_value) - value)
@@ -120,7 +121,7 @@ def message_consumer(name, env, in_pipe, value, trust_dict):
 
             decision = ""
 
-            if delta <= 10 and trust >= 0.5:
+            if delta <= 10 and trust >= 0.5 and (env.now - int(req_time)) <= 15:
                 decision = "Accepted"
                 value = int(req_value)
                 trust_dict[requester] += 0.1
@@ -128,8 +129,8 @@ def message_consumer(name, env, in_pipe, value, trust_dict):
                 decision = "Ignored"
                 trust_dict[requester] -= 0.1
 
-            
-            print('%s\n%s received message at time %d' %(msg[1], name, env.now))
+            print('%s: Current Trust %f' %(msg[1], trust))
+            print('%s received message at time %d' %(name, env.now))
             print('Value %s: Delta %d Decision %s: Trust %f' %(value, delta, decision, trust_dict[requester]))
             print(trust_dict)
             print('\n')

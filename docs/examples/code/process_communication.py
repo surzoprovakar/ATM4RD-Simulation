@@ -34,7 +34,7 @@ import simpy
 
 
 RANDOM_SEED = 42
-SIM_TIME = 20
+SIM_TIME = 100
 
 
 class BroadcastPipe(object):
@@ -72,7 +72,7 @@ class BroadcastPipe(object):
         return pipe
 
 
-def message_generator(name, env, out_pipe, trust, prev_val):
+def message_generator(name, env, out_pipe):
     """A process which randomly generates messages."""
     while True:
         # wait for next transmission
@@ -85,24 +85,13 @@ def message_generator(name, env, out_pipe, trust, prev_val):
         # in the pipe first and then message_consumer gets from pipe,
         # the event.triggered will be True in the other order it will be
         # False
-        res = ""
         val = random.randint(1, 20)
-        delta = val - prev_val
-        if abs(delta) <= 10 and trust >= 0.5:
-            res = "Accepted"
-            trust += 0.1
-        else:
-            res = "Ignored"
-            if trust >= 0.1:
-                trust -= 0.1
     
-        msg = (env.now, '%s sends %d at time %d: delta = %d trust = %f decision = %s' % (name, val, env.now, delta, trust, res))
+        msg = (env.now, '%s sends %d at time %d' % (name, val, env.now))
         out_pipe.put(msg)
 
-        prev_val = val
 
-
-def message_consumer(name, env, in_pipe, val):
+def message_consumer(name, env, in_pipe, value, trust_dict):
     """A process which consumes messages."""
     while True:
         # Get event for message pipe
@@ -121,10 +110,29 @@ def message_consumer(name, env, in_pipe, val):
         #     print('at time %d: %s received message: %s.' %
         #           (env.now, name, msg[1]))
         split = msg[1].split(" ")
-        val = split[3]
-        if (name[8] != split[1]):
-            print('%s\n%s received message at time %d: Value %s\n.' %(msg[1], name, env.now, val))
+
+        requester = split[1]
+        req_value = split[3]
+
+        if (name[8] != requester):
+            delta = abs(int(req_value) - value)
+            trust = trust_dict[requester]
+
+            decision = ""
+
+            if delta <= 10 and trust >= 0.5:
+                decision = "Accepted"
+                value = int(req_value)
+                trust_dict[requester] += 0.1
+            else:
+                decision = "Ignored"
+                trust_dict[requester] -= 0.1
+
             
+            print('%s\n%s received message at time %d' %(msg[1], name, env.now))
+            print('Value %s: Delta %d Decision %s: Trust %f' %(value, delta, decision, trust_dict[requester]))
+            print(trust_dict)
+            print('\n')
             
         
         time.sleep(0.5)
@@ -150,14 +158,14 @@ random.seed(RANDOM_SEED)
 env = simpy.Environment()
 bc_pipe = BroadcastPipe(env)
 
-env.process(message_generator('Replica A', env, bc_pipe, 0.5, 0))
-env.process(message_generator('Replica B', env, bc_pipe, 0.5, 0))
-env.process(message_generator('Replica C', env, bc_pipe, 0.5, 0))
-env.process(message_generator('Replica D', env, bc_pipe, 0.5, 0))
-env.process(message_consumer('Replica A', env, bc_pipe.get_output_conn(), 0))
-env.process(message_consumer('Replica B', env, bc_pipe.get_output_conn(), 0))
-env.process(message_consumer('Replica C', env, bc_pipe.get_output_conn(), 0))
-env.process(message_consumer('Replica D', env, bc_pipe.get_output_conn(), 0))
+env.process(message_generator('Replica A', env, bc_pipe))
+env.process(message_generator('Replica B', env, bc_pipe))
+env.process(message_generator('Replica C', env, bc_pipe))
+env.process(message_generator('Replica D', env, bc_pipe))
+env.process(message_consumer('Replica A', env, bc_pipe.get_output_conn(), 0, {'B' : 0.5, 'C' : 0.5, 'D' : 0.5}))
+env.process(message_consumer('Replica B', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'C' : 0.5, 'D' : 0.5}))
+env.process(message_consumer('Replica C', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'B' : 0.5, 'D' : 0.5}))
+env.process(message_consumer('Replica D', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'B' : 0.5, 'C' : 0.5}))
 
 # print('\nOne-to-many pipe communication\n')
 env.run(until=SIM_TIME)

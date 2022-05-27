@@ -29,6 +29,7 @@ Example By:
 """
 import random
 import time
+import os
 
 import simpy
 
@@ -71,6 +72,34 @@ class BroadcastPipe(object):
         self.pipes.append(pipe)
         return pipe
 
+def file_generator():
+    if os.path.exists('Replica A.txt') == False:
+        fA = open("Replica A.txt", "a")
+    else:
+        os.remove('Replica A.txt')
+        fA = open("Replica A.txt", "a")
+
+    if os.path.exists('Replica B.txt') == False:
+        fB = open("Replica B.txt", "a")
+    else:
+        os.remove('Replica B.txt')
+        fB = open("Replica B.txt", "a")
+
+    if os.path.exists('Replica C.txt') == False:
+        fC = open("Replica C.txt", "a")
+    else:
+        os.remove('Replica C.txt')
+        fC = open("Replica C.txt", "a")
+
+    if os.path.exists('Replica D.txt') == False:
+        fD = open("Replica D.txt", "a")
+    else:
+        os.remove('Replica D.txt')
+        fD = open("Replica D.txt", "a")
+    
+    return fA, fB, fC, fD
+
+
 
 def message_generator(name, env, out_pipe):
     """A process which randomly generates messages."""
@@ -91,7 +120,7 @@ def message_generator(name, env, out_pipe):
         out_pipe.put(msg)
 
 
-def message_consumer(name, env, in_pipe, value, trust_dict):
+def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
     """A process which consumes messages."""
     while True:
         # Get event for message pipe
@@ -129,12 +158,18 @@ def message_consumer(name, env, in_pipe, value, trust_dict):
                 decision = "Ignored"
                 trust_dict[requester] -= 0.1
 
-            print('%s: Current Trust %f' %(msg[1], trust))
+            print('%s| Current Trust %f' %(msg[1], trust))
             print('%s received message at time %d' %(name, env.now))
-            print('Value %s: Delta %d Decision %s: Trust %f' %(value, delta, decision, trust_dict[requester]))
+            print('Delta %d| Decision %s| Updated Trust %f' %(delta, decision, trust_dict[requester]))
             print(trust_dict)
+            print('Final Value %s' %(value))
             print('\n')
-            
+
+            fileName.write('%s| Current Trust %f' %(msg[1], trust))
+            fileName.write('Delta %d| Decision %s| Updated Trust %f\n' %(delta, decision, trust_dict[requester]))
+            fileName.write('%s\n' %(trust_dict))
+            fileName.write('Final Value %s\n' %(value))
+            fileName.write('\n')
         
         time.sleep(0.5)
         # Process does some other work, which may result in missing messages
@@ -142,6 +177,10 @@ def message_consumer(name, env, in_pipe, value, trust_dict):
 
 
 # Setup and start the simulation
+
+# Generate Replica Output files
+fA, fB, fC, fD = file_generator()
+
 print('\nProcess communication\n')
 random.seed(RANDOM_SEED)
 # env = simpy.Environment()
@@ -163,10 +202,11 @@ env.process(message_generator('Replica A', env, bc_pipe))
 env.process(message_generator('Replica B', env, bc_pipe))
 env.process(message_generator('Replica C', env, bc_pipe))
 env.process(message_generator('Replica D', env, bc_pipe))
-env.process(message_consumer('Replica A', env, bc_pipe.get_output_conn(), 0, {'B' : 0.5, 'C' : 0.5, 'D' : 0.5}))
-env.process(message_consumer('Replica B', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'C' : 0.5, 'D' : 0.5}))
-env.process(message_consumer('Replica C', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'B' : 0.5, 'D' : 0.5}))
-env.process(message_consumer('Replica D', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'B' : 0.5, 'C' : 0.5}))
+env.process(message_consumer('Replica A', env, bc_pipe.get_output_conn(), 0, {'B' : 0.5, 'C' : 0.5, 'D' : 0.5}, fA))
+env.process(message_consumer('Replica B', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'C' : 0.5, 'D' : 0.5}, fB))
+env.process(message_consumer('Replica C', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'B' : 0.5, 'D' : 0.5}, fC))
+env.process(message_consumer('Replica D', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'B' : 0.5, 'C' : 0.5}, fD))
 
 # print('\nOne-to-many pipe communication\n')
 env.run(until=SIM_TIME)
+

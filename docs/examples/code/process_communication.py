@@ -72,6 +72,7 @@ class BroadcastPipe(object):
         self.pipes.append(pipe)
         return pipe
 
+
 def file_generator():
     if os.path.exists('Replica A.txt') == False:
         fA = open("Replica A.txt", "a")
@@ -100,6 +101,59 @@ def file_generator():
     return fA, fB, fC, fD
 
 
+def SLA(trust, delta, time_freq):
+    decision = ""
+    updated_trust = 0.0
+    if trust >= 0.9:
+        # Very Trusty
+        if delta <= 20 and time_freq <= 20:
+            decision = "Accepted"
+            # Max trust value is 1.0
+            if trust < 1:
+                updated_trust = trust + 0.1
+            else:
+                updated_trust = trust 
+        else:
+            decision = "Ignored"
+            updated_trust = trust - 0.1
+    elif trust >= 0.6 and trust < 0.9:
+        # Medium Trusty
+        if delta <= 15 and time_freq <= 18:
+            decision = "Accepted"
+            updated_trust = trust + 0.1
+        else:
+            decision = "Ignored"
+            updated_trust = trust - 0.1
+    elif trust >= 0.5 and trust < 0.6:
+        # Low Trusty
+        if delta <= 10 and time_freq <= 12:
+            decision = "Accepted"
+            updated_trust = trust + 0.1
+        else:
+            decision = "Ignored"
+            updated_trust = trust - 0.1
+    elif trust < 0.5 and trust >= 0.25:
+        # Less Untrustworthy
+        if delta <= 7 and time_freq <= 0.8:
+            decision = "Ignored"
+            updated_trust = trust + 0.1
+        else:
+            decision = "Ignored"
+            updated_trust = trust - 0.1
+    else:
+        # Very Untrustworthy
+        if delta <= 3 and time_freq <= 5:
+            decision = "Ignored"
+            updated_trust = trust + 0.1
+        else:
+            decision = "Ignored"
+            if trust > 0:
+                # Min trust value is 0.0
+                updated_trust = trust - 0.1
+            else:
+                updated_trust = trust
+    
+    return decision, updated_trust
 
 def message_generator(name, env, out_pipe):
     """A process which randomly generates messages."""
@@ -145,18 +199,27 @@ def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
         req_time = split[6]
 
         if (name[8] != requester):
-            delta = abs(int(req_value) - value)
+            # delta = abs(int(req_value) - value)
+            # trust = trust_dict[requester]
+
+            # decision = ""
+
+            # if delta <= 10 and trust >= 0.5 and (env.now - int(req_time)) <= 15:
+            #     decision = "Accepted"
+            #     value = int(req_value)
+            #     trust_dict[requester] += 0.1
+            # else:
+            #     decision = "Ignored"
+            #     trust_dict[requester] -= 0.1
+
             trust = trust_dict[requester]
+            delta = abs(int(req_value) - value)
+            time_freq = env.now - int(req_time)
 
-            decision = ""
-
-            if delta <= 10 and trust >= 0.5 and (env.now - int(req_time)) <= 15:
-                decision = "Accepted"
+            decision, up_trust = SLA(trust, delta, time_freq) 
+            trust_dict[requester] = up_trust
+            if decision == "Accepted":
                 value = int(req_value)
-                trust_dict[requester] += 0.1
-            else:
-                decision = "Ignored"
-                trust_dict[requester] -= 0.1
 
             print('%s| Current Trust %f' %(msg[1], trust))
             print('%s received message at time %d' %(name, env.now))
@@ -165,7 +228,7 @@ def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
             print('Final Value %s' %(value))
             print('\n')
 
-            fileName.write('%s| Current Trust %f' %(msg[1], trust))
+            fileName.write('%s| Current Trust %f\n' %(msg[1], trust))
             fileName.write('Delta %d| Decision %s| Updated Trust %f\n' %(delta, decision, trust_dict[requester]))
             fileName.write('%s\n' %(trust_dict))
             fileName.write('Final Value %s\n' %(value))

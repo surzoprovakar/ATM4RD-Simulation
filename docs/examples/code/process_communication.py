@@ -101,12 +101,12 @@ def file_generator():
     return fA, fB, fC, fD
 
 
-def SLA(trust, delta, time_freq):
+def SLA(trust, delta):
     decision = ""
     updated_trust = 0.0
     if trust >= 0.9:
         # Very Trusty
-        if delta <= 20 and time_freq <= 20:
+        if delta <= 20: # and time_freq <= 20:
             decision = "Accepted"
             # Max trust value is 1.0
             if trust < 1:
@@ -118,7 +118,7 @@ def SLA(trust, delta, time_freq):
             updated_trust = trust - 0.1
     elif trust >= 0.6 and trust < 0.9:
         # Medium Trusty
-        if delta <= 15 and time_freq <= 18:
+        if delta <= 15: # and time_freq <= 18:
             decision = "Accepted"
             updated_trust = trust + 0.1
         else:
@@ -126,7 +126,7 @@ def SLA(trust, delta, time_freq):
             updated_trust = trust - 0.1
     elif trust >= 0.5 and trust < 0.6:
         # Low Trusty
-        if delta <= 10 and time_freq <= 12:
+        if delta <= 10: # and time_freq <= 12:
             decision = "Accepted"
             updated_trust = trust + 0.1
         else:
@@ -134,7 +134,7 @@ def SLA(trust, delta, time_freq):
             updated_trust = trust - 0.1
     elif trust < 0.5 and trust >= 0.25:
         # Less Untrustworthy
-        if delta <= 7 and time_freq <= 0.8:
+        if delta <= 7: # and time_freq <= 0.8:
             decision = "Ignored"
             updated_trust = trust + 0.1
         else:
@@ -142,7 +142,7 @@ def SLA(trust, delta, time_freq):
             updated_trust = trust - 0.1
     else:
         # Very Untrustworthy
-        if delta <= 3 and time_freq <= 5:
+        if delta <= 3: # and time_freq <= 5:
             decision = "Ignored"
             updated_trust = trust + 0.1
         else:
@@ -214,9 +214,9 @@ def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
 
             trust = trust_dict[requester]
             delta = abs(int(req_value) - value)
-            time_freq = env.now - int(req_time)
+            # time_freq = env.now - int(req_time)
 
-            decision, up_trust = SLA(trust, delta, time_freq) 
+            decision, up_trust = SLA(trust, delta) 
             trust_dict[requester] = up_trust
             if decision == "Accepted":
                 value = int(req_value)
@@ -229,11 +229,17 @@ def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
             print('\n')
 
             fileName.write('%s| Current Trust %f\n' %(msg[1], trust))
+            fileName.write('%s received message at time %d\n' %(name, env.now))
             fileName.write('Delta %d| Decision %s| Updated Trust %f\n' %(delta, decision, trust_dict[requester]))
             fileName.write('%s\n' %(trust_dict))
-            fileName.write('Final Value %s\n' %(value))
+            fileName.write('Final Value = %s\n' %(value))
             fileName.write('\n')
-        
+        #else:
+            # print('Self Generated Value = %s\n' %(req_value))
+            # print('\n')
+            # fileName.write('Self Generated Value = %s\n' %(req_value))
+            # fileName.write('\n')
+
         time.sleep(0.5)
         # Process does some other work, which may result in missing messages
         yield env.timeout(random.randint(4, 8))

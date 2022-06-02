@@ -35,7 +35,10 @@ import simpy
 
 
 RANDOM_SEED = 42
-SIM_TIME = 100
+SIM_TIME = 1500
+
+last_requester = ""
+last_req_value = "" 
 
 
 class BroadcastPipe(object):
@@ -109,8 +112,10 @@ def SLA(trust, delta):
         if delta <= 20: # and time_freq <= 20:
             decision = "Accepted"
             # Max trust value is 1.0
-            if trust < 1:
+            if trust < 1.0:
                 updated_trust = trust + 0.1
+                if updated_trust > 1:
+                    updated_trust = 1.0
             else:
                 updated_trust = trust 
         else:
@@ -147,7 +152,7 @@ def SLA(trust, delta):
             updated_trust = trust + 0.1
         else:
             decision = "Ignored"
-            if trust > 0:
+            if trust > 0.0:
                 # Min trust value is 0.0
                 updated_trust = trust - 0.1
             else:
@@ -159,7 +164,8 @@ def message_generator(name, env, out_pipe):
     """A process which randomly generates messages."""
     while True:
         # wait for next transmission
-        yield env.timeout(random.randint(6, 10))
+        # yield env.timeout(random.randint(6, 10))
+        yield env.timeout(2)
 
         # messages are time stamped to later check if the consumer was
         # late getting them.  Note, using event.triggered to do this may
@@ -168,7 +174,8 @@ def message_generator(name, env, out_pipe):
         # in the pipe first and then message_consumer gets from pipe,
         # the event.triggered will be True in the other order it will be
         # False
-        val = random.randint(1, 20)
+
+        val = random.randint(1, 15)
     
         msg = (env.now, '%s sends %d at time %d' % (name, val, env.now))
         out_pipe.put(msg)
@@ -176,6 +183,7 @@ def message_generator(name, env, out_pipe):
 
 def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
     """A process which consumes messages."""
+    global last_requester, last_req_value
     while True:
         # Get event for message pipe
         msg = yield in_pipe.get()
@@ -196,8 +204,9 @@ def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
 
         requester = split[1]
         req_value = split[3]
-        req_time = split[6]
-
+        # req_time = split[6]
+        last_requester = requester
+        last_req_value = req_value
         if (name[8] != requester):
             # delta = abs(int(req_value) - value)
             # trust = trust_dict[requester]
@@ -240,9 +249,11 @@ def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
             # fileName.write('Self Generated Value = %s\n' %(req_value))
             # fileName.write('\n')
 
+
         time.sleep(0.5)
         # Process does some other work, which may result in missing messages
-        yield env.timeout(random.randint(4, 8))
+        # yield env.timeout(random.randint(4, 8))
+        yield env.timeout(3)
 
 
 # Setup and start the simulation
@@ -251,7 +262,7 @@ def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
 fA, fB, fC, fD = file_generator()
 
 print('\nProcess communication\n')
-random.seed(RANDOM_SEED)
+# random.seed(RANDOM_SEED)
 # env = simpy.Environment()
 
 # # For one-to-one or many-to-one type pipes, use Store
@@ -271,6 +282,7 @@ env.process(message_generator('Replica A', env, bc_pipe))
 env.process(message_generator('Replica B', env, bc_pipe))
 env.process(message_generator('Replica C', env, bc_pipe))
 env.process(message_generator('Replica D', env, bc_pipe))
+
 env.process(message_consumer('Replica A', env, bc_pipe.get_output_conn(), 0, {'B' : 0.5, 'C' : 0.5, 'D' : 0.5}, fA))
 env.process(message_consumer('Replica B', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'C' : 0.5, 'D' : 0.5}, fB))
 env.process(message_consumer('Replica C', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'B' : 0.5, 'D' : 0.5}, fC))
@@ -279,3 +291,12 @@ env.process(message_consumer('Replica D', env, bc_pipe.get_output_conn(), 0, {'A
 # print('\nOne-to-many pipe communication\n')
 env.run(until=SIM_TIME)
 
+
+if last_requester == "A":
+    fA.write('Self Generated Value = %s\n' %(last_req_value))
+elif last_requester == "B":
+    fB.write('Self Generated Value = %s\n' %(last_req_value))
+elif last_requester == "C":
+    fC.write('Self Generated Value = %s\n' %(last_req_value))
+else:
+    fD.write('Self Generated Value = %s\n' %(last_req_value))

@@ -6,7 +6,7 @@ Covers:
 - Resources: Store
 
 Scenario:
-  This example shows how to interconnect simulation model elements
+  This example shows how to interconnAect simulation model elements
   together using :class:`~simpy.resources.store.Store` for one-to-one,
   and many-to-one asynchronous processes. For one-to-many a simple
   BroadCastPipe class is constructed from Store.
@@ -20,7 +20,7 @@ When Useful:
   This is also useful when some information needs to be broadcast to
   many receiving processes
 
-  Finally, using pipes can simplify how processes are interconnected to
+  Finally, using pipes can simplify how processes are interconnAected to
   each other in a simulation model.
 
 Example By:
@@ -29,13 +29,13 @@ Example By:
 """
 import random
 import time
-import os
+from helper_methods import *
 
 import simpy
 
 
 RANDOM_SEED = 42
-SIM_TIME = 1500
+SIM_TIME = 30
 
 last_requester = ""
 last_req_value = "" 
@@ -50,7 +50,7 @@ class BroadcastPipe(object):
 
     The parameters are used to create a new
     :class:`~simpy.resources.store.Store` instance each time
-    :meth:`get_output_conn()` is called.
+    :meth:`get_output_connA()` is called.
 
     """
     def __init__(self, env, capacity=simpy.core.Infinity):
@@ -65,8 +65,8 @@ class BroadcastPipe(object):
         events = [store.put(value) for store in self.pipes]
         return self.env.all_of(events)  # Condition event for all "events"
 
-    def get_output_conn(self):
-        """Get a new output connection for this broadcast pipe.
+    def get_output_connA(self):
+        """Get a new output connAection for this broadcast pipe.
 
         The return value is a :class:`~simpy.resources.store.Store`.
 
@@ -75,90 +75,6 @@ class BroadcastPipe(object):
         self.pipes.append(pipe)
         return pipe
 
-
-def file_generator():
-    if os.path.exists('Replica A.txt') == False:
-        fA = open("Replica A.txt", "a")
-    else:
-        os.remove('Replica A.txt')
-        fA = open("Replica A.txt", "a")
-
-    if os.path.exists('Replica B.txt') == False:
-        fB = open("Replica B.txt", "a")
-    else:
-        os.remove('Replica B.txt')
-        fB = open("Replica B.txt", "a")
-
-    if os.path.exists('Replica C.txt') == False:
-        fC = open("Replica C.txt", "a")
-    else:
-        os.remove('Replica C.txt')
-        fC = open("Replica C.txt", "a")
-
-    if os.path.exists('Replica D.txt') == False:
-        fD = open("Replica D.txt", "a")
-    else:
-        os.remove('Replica D.txt')
-        fD = open("Replica D.txt", "a")
-    
-    return fA, fB, fC, fD
-
-
-def SLA(trust, delta):
-    decision = ""
-    updated_trust = 0.0
-    if trust >= 0.9:
-        # Very Trusty
-        if delta <= 20: # and time_freq <= 20:
-            decision = "Accepted"
-            # Max trust value is 1.0
-            if trust < 1.0:
-                updated_trust = trust + 0.1
-                if updated_trust > 1:
-                    updated_trust = 1.0
-            else:
-                updated_trust = trust 
-        else:
-            decision = "Ignored"
-            updated_trust = trust - 0.1
-    elif trust >= 0.6 and trust < 0.9:
-        # Medium Trusty
-        if delta <= 15: # and time_freq <= 18:
-            decision = "Accepted"
-            updated_trust = trust + 0.1
-        else:
-            decision = "Ignored"
-            updated_trust = trust - 0.1
-    elif trust >= 0.5 and trust < 0.6:
-        # Low Trusty
-        if delta <= 10: # and time_freq <= 12:
-            decision = "Accepted"
-            updated_trust = trust + 0.1
-        else:
-            decision = "Ignored"
-            updated_trust = trust - 0.1
-    elif trust < 0.5 and trust >= 0.25:
-        # Less Untrustworthy
-        if delta <= 7: # and time_freq <= 0.8:
-            decision = "Ignored"
-            updated_trust = trust + 0.1
-        else:
-            decision = "Ignored"
-            updated_trust = trust - 0.1
-    else:
-        # Very Untrustworthy
-        if delta <= 3: # and time_freq <= 5:
-            decision = "Ignored"
-            updated_trust = trust + 0.1
-        else:
-            decision = "Ignored"
-            if trust > 0.0:
-                # Min trust value is 0.0
-                updated_trust = trust - 0.1
-            else:
-                updated_trust = trust
-    
-    return decision, updated_trust
 
 def message_generator(name, env, out_pipe):
     """A process which randomly generates messages."""
@@ -175,13 +91,13 @@ def message_generator(name, env, out_pipe):
         # the event.triggered will be True in the other order it will be
         # False
 
-        val = random.randint(1, 15)
+        val = random.randint(1, 20)
     
         msg = (env.now, '%s sends %d at time %d' % (name, val, env.now))
         out_pipe.put(msg)
 
 
-def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
+def message_consumer(name, env, in_pipe, value, trust_dict, c, conn):
     """A process which consumes messages."""
     global last_requester, last_req_value
     while True:
@@ -201,10 +117,11 @@ def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
         #     print('at time %d: %s received message: %s.' %
         #           (env.now, name, msg[1]))
         split = msg[1].split(" ")
-
+        current_value = value
         requester = split[1]
         req_value = split[3]
-        # req_time = split[6]
+        req_time = split[6]
+        receive_time = env.now
         last_requester = requester
         last_req_value = req_value
         if (name[8] != requester):
@@ -222,6 +139,7 @@ def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
             #     trust_dict[requester] -= 0.1
 
             trust = trust_dict[requester]
+            req_trust = trust
             delta = abs(int(req_value) - value)
             # time_freq = env.now - int(req_time)
 
@@ -237,12 +155,15 @@ def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
             print('Final Value %s' %(value))
             print('\n')
 
-            fileName.write('%s| Current Trust %f\n' %(msg[1], trust))
-            fileName.write('%s received message at time %d\n' %(name, env.now))
-            fileName.write('Delta %d| Decision %s| Updated Trust %f\n' %(delta, decision, trust_dict[requester]))
-            fileName.write('%s\n' %(trust_dict))
-            fileName.write('Final Value = %s\n' %(value))
-            fileName.write('\n')
+            db_insert(c, conn, requester, current_value, req_value, str(delta),
+            req_trust, up_trust, req_time, receive_time, decision, value)
+
+            # fileName.write('%s| Current Trust %f\n' %(msg[1], trust))
+            # fileName.write('%s received message at time %d\n' %(name, env.now))
+            # fileName.write('Delta %d| Decision %s| Updated Trust %f\n' %(delta, decision, trust_dict[requester]))
+            # fileName.write('%s\n' %(trust_dict))
+            # fileName.write('Final Value = %s\n' %(value))
+            # fileName.write('\n')
         #else:
             # print('Self Generated Value = %s\n' %(req_value))
             # print('\n')
@@ -259,7 +180,8 @@ def message_consumer(name, env, in_pipe, value, trust_dict, fileName):
 # Setup and start the simulation
 
 # Generate Replica Output files
-fA, fB, fC, fD = file_generator()
+# fA, fB, fC, fD = file_generator()
+cA, connA, cB, connB, cC, connC, cD, connD = db_generatoor()
 
 print('\nProcess communication\n')
 # random.seed(RANDOM_SEED)
@@ -283,20 +205,20 @@ env.process(message_generator('Replica B', env, bc_pipe))
 env.process(message_generator('Replica C', env, bc_pipe))
 env.process(message_generator('Replica D', env, bc_pipe))
 
-env.process(message_consumer('Replica A', env, bc_pipe.get_output_conn(), 0, {'B' : 0.5, 'C' : 0.5, 'D' : 0.5}, fA))
-env.process(message_consumer('Replica B', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'C' : 0.5, 'D' : 0.5}, fB))
-env.process(message_consumer('Replica C', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'B' : 0.5, 'D' : 0.5}, fC))
-env.process(message_consumer('Replica D', env, bc_pipe.get_output_conn(), 0, {'A' : 0.5, 'B' : 0.5, 'C' : 0.5}, fD))
+env.process(message_consumer('Replica A', env, bc_pipe.get_output_connA(), 0, {'B' : 0.5, 'C' : 0.5, 'D' : 0.5}, cA, connA))
+env.process(message_consumer('Replica B', env, bc_pipe.get_output_connA(), 0, {'A' : 0.5, 'C' : 0.5, 'D' : 0.5}, cB, connB))
+env.process(message_consumer('Replica C', env, bc_pipe.get_output_connA(), 0, {'A' : 0.5, 'B' : 0.5, 'D' : 0.5}, cC, connC))
+env.process(message_consumer('Replica D', env, bc_pipe.get_output_connA(), 0, {'A' : 0.5, 'B' : 0.5, 'C' : 0.5}, cD, connD))
 
 # print('\nOne-to-many pipe communication\n')
 env.run(until=SIM_TIME)
 
-
-if last_requester == "A":
-    fA.write('Self Generated Value = %s\n' %(last_req_value))
-elif last_requester == "B":
-    fB.write('Self Generated Value = %s\n' %(last_req_value))
-elif last_requester == "C":
-    fC.write('Self Generated Value = %s\n' %(last_req_value))
-else:
-    fD.write('Self Generated Value = %s\n' %(last_req_value))
+print('Last Requester %s | Self Generated Value = %s\n' %(last_requester, last_req_value))
+# if last_requester == "A":
+#     fA.write('Self Generated Value = %s\n' %(last_req_value))
+# elif last_requester == "B":
+#     fB.write('Self Generated Value = %s\n' %(last_req_value))
+# elif last_requester == "C":
+#     fC.write('Self Generated Value = %s\n' %(last_req_value))
+# else:
+#     fD.write('Self Generated Value = %s\n' %(last_req_value))

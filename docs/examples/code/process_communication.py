@@ -30,12 +30,13 @@ Example By:
 import random
 import time
 from helper_methods import *
+from sla import *
 
 import simpy
 
-
+count = 1
 RANDOM_SEED = 42
-SIM_TIME = 30
+SIM_TIME = 3000
 
 last_requester = ""
 last_req_value = "" 
@@ -78,6 +79,7 @@ class BroadcastPipe(object):
 
 def message_generator(name, env, out_pipe):
     """A process which randomly generates messages."""
+    global count
     while True:
         # wait for next transmission
         # yield env.timeout(random.randint(6, 10))
@@ -90,8 +92,13 @@ def message_generator(name, env, out_pipe):
         # in the pipe first and then message_consumer gets from pipe,
         # the event.triggered will be True in the other order it will be
         # False
-
-        val = random.randint(1, 20)
+        if count % 300 == 0:
+            val = random.randint(30, 50)
+        else:
+            val = random.randint(1, 20)
+        
+        count += 1
+        # print('Count = ', count)
     
         msg = (env.now, '%s sends %d at time %d' % (name, val, env.now))
         out_pipe.put(msg)
@@ -143,7 +150,7 @@ def message_consumer(name, env, in_pipe, value, trust_dict, c, conn):
             delta = abs(int(req_value) - value)
             # time_freq = env.now - int(req_time)
 
-            decision, up_trust = SLA(trust, delta) 
+            decision, up_trust = SLA(float(trust), delta) 
             trust_dict[requester] = up_trust
             if decision == "Accepted":
                 value = int(req_value)

@@ -20,5 +20,4 @@ htmlcov/
 .mypy_cache
 .vscode
 Replica*.txt
-db_test.py
 *.db

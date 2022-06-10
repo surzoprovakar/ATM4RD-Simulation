@@ -34,6 +34,7 @@ from sla_script import *
 
 import simpy
 
+mode = 0
 count = 1
 interval = 60
 RANDOM_SEED = 42
@@ -150,27 +151,40 @@ def message_consumer(name, env, in_pipe, value, trust_dict, c, conn):
             #     decision = "Ignored"
             #     trust_dict[requester] -= 0.1
 
-            trust = trust_dict[requester]
-            req_trust = trust
-            delta = abs(int(req_value) - value)
-            # time_freq = env.now - int(req_time)
+            if mode == 1:
+                # Simulation with trust
+                trust = trust_dict[requester]
+                req_trust = trust
+                delta = abs(int(req_value) - value)
+                # time_freq = env.now - int(req_time)
 
-            # decision, up_trust = SLA_Old(float(trust), delta) 
-            decision, up_trust = sla(trust, delta) 
+                # decision, up_trust = SLA_Old(float(trust), delta) 
+                decision, up_trust = sla(trust, delta) 
 
-            trust_dict[requester] = up_trust
-            if decision == "Accepted":
+                trust_dict[requester] = up_trust
+                if decision == "Accepted":
+                    value = int(req_value)
+
+                print('%s| Current Trust %f' %(msg[1], trust))
+                print('%s received message at time %d' %(name, env.now))
+                print('Delta %d| Decision %s| Updated Trust %f' %(delta, decision, trust_dict[requester]))
+                print(trust_dict)
+                print('Final Value %s' %(value))
+                print('\n')
+
+                db_insert(c, conn, requester, current_value, req_value, str(delta),
+                req_trust, up_trust, req_time, receive_time, decision, value)
+            else:
+                # Simulation without trust
+                delta = abs(int(req_value) - value)
+                decision = "Accepted"
                 value = int(req_value)
+                print('%s received message at time %d' %(name, env.now))
+                print('Merged Value %s' %(value))
+                print('\n')
 
-            print('%s| Current Trust %f' %(msg[1], trust))
-            print('%s received message at time %d' %(name, env.now))
-            print('Delta %d| Decision %s| Updated Trust %f' %(delta, decision, trust_dict[requester]))
-            print(trust_dict)
-            print('Final Value %s' %(value))
-            print('\n')
-
-            db_insert(c, conn, requester, current_value, req_value, str(delta),
-            req_trust, up_trust, req_time, receive_time, decision, value)
+                db_insert(c, conn, requester, current_value, req_value, str(delta),
+                "", "", req_time, receive_time, decision, value)
 
             # fileName.write('%s| Current Trust %f\n' %(msg[1], trust))
             # fileName.write('%s received message at time %d\n' %(name, env.now))
@@ -198,7 +212,7 @@ def message_consumer(name, env, in_pipe, value, trust_dict, c, conn):
 cA, connA, cB, connB, cC, connC, cD, connD = db_generatoor()
 
 print('\nProcess communication\n')
-# random.seed(RANDOM_SEED)
+random.seed(RANDOM_SEED)
 # env = simpy.Environment()
 
 # # For one-to-one or many-to-one type pipes, use Store

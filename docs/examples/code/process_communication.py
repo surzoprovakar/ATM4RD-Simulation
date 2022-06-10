@@ -30,11 +30,12 @@ Example By:
 import random
 import time
 from helper_methods import *
-from sla import *
+from sla_script import *
 
 import simpy
 
 count = 1
+interval = 60
 RANDOM_SEED = 42
 SIM_TIME = 3000
 
@@ -80,6 +81,7 @@ class BroadcastPipe(object):
 def message_generator(name, env, out_pipe):
     """A process which randomly generates messages."""
     global count
+    global interval
     while True:
         # wait for next transmission
         # yield env.timeout(random.randint(6, 10))
@@ -92,8 +94,11 @@ def message_generator(name, env, out_pipe):
         # in the pipe first and then message_consumer gets from pipe,
         # the event.triggered will be True in the other order it will be
         # False
-        if count % 300 == 0:
-            val = random.randint(30, 50)
+        if count % interval == 0:
+            val = random.randint(50, 60)
+            interval -= 2
+            if interval < 3:
+                interval = 60
         else:
             val = random.randint(1, 20)
         
@@ -150,7 +155,9 @@ def message_consumer(name, env, in_pipe, value, trust_dict, c, conn):
             delta = abs(int(req_value) - value)
             # time_freq = env.now - int(req_time)
 
-            decision, up_trust = SLA(float(trust), delta) 
+            # decision, up_trust = SLA_Old(float(trust), delta) 
+            decision, up_trust = sla(trust, delta) 
+
             trust_dict[requester] = up_trust
             if decision == "Accepted":
                 value = int(req_value)
@@ -212,20 +219,12 @@ env.process(message_generator('Replica B', env, bc_pipe))
 env.process(message_generator('Replica C', env, bc_pipe))
 env.process(message_generator('Replica D', env, bc_pipe))
 
-env.process(message_consumer('Replica A', env, bc_pipe.get_output_connA(), 0, {'B' : 0.5, 'C' : 0.5, 'D' : 0.5}, cA, connA))
-env.process(message_consumer('Replica B', env, bc_pipe.get_output_connA(), 0, {'A' : 0.5, 'C' : 0.5, 'D' : 0.5}, cB, connB))
-env.process(message_consumer('Replica C', env, bc_pipe.get_output_connA(), 0, {'A' : 0.5, 'B' : 0.5, 'D' : 0.5}, cC, connC))
-env.process(message_consumer('Replica D', env, bc_pipe.get_output_connA(), 0, {'A' : 0.5, 'B' : 0.5, 'C' : 0.5}, cD, connD))
+env.process(message_consumer('Replica A', env, bc_pipe.get_output_connA(), 0, {'B' : 50, 'C' : 50, 'D' : 50}, cA, connA))
+env.process(message_consumer('Replica B', env, bc_pipe.get_output_connA(), 0, {'A' : 50, 'C' : 50, 'D' : 50}, cB, connB))
+env.process(message_consumer('Replica C', env, bc_pipe.get_output_connA(), 0, {'A' : 50, 'B' : 50, 'D' : 50}, cC, connC))
+env.process(message_consumer('Replica D', env, bc_pipe.get_output_connA(), 0, {'A' : 50, 'B' : 50, 'C' : 50}, cD, connD))
 
 # print('\nOne-to-many pipe communication\n')
 env.run(until=SIM_TIME)
 
 print('Last Requester %s | Self Generated Value = %s\n' %(last_requester, last_req_value))
-# if last_requester == "A":
-#     fA.write('Self Generated Value = %s\n' %(last_req_value))
-# elif last_requester == "B":
-#     fB.write('Self Generated Value = %s\n' %(last_req_value))
-# elif last_requester == "C":
-#     fC.write('Self Generated Value = %s\n' %(last_req_value))
-# else:
-#     fD.write('Self Generated Value = %s\n' %(last_req_value))

@@ -1,6 +1,55 @@
-import json
+Rules = {}
 
-def SLA(trust, delta):
+Rules.update({tuple((90, 100)) : lambda d: d <=20})
+Rules.update({tuple((65, 89)) : lambda d: d <=15})
+Rules.update({tuple((50, 64)) : lambda d: d <=12})
+Rules.update({tuple((25, 49)) : lambda d: d <=8})
+Rules.update({tuple((0, 24)) : lambda d: d <=5})
+
+
+def sla(trust, delta):
+    
+    idx = None
+    check = None
+    for i, ele in enumerate(Rules.keys()):
+        if  trust >= ele[0]  and trust <= ele[1]:
+            idx = i
+            x = Rules[ele]
+            check = x(delta)
+            break
+    
+    return action(idx, check, trust)
+
+    
+
+def action(idx, check, trust):
+    decision = ""
+    updated_trust = 0
+
+    if idx >= 3:
+        decision = "Ignored"
+        if check == True:
+            updated_trust = trust + 5
+        else:
+            updated_trust = trust - 5
+    else:
+        if check == True:
+            decision = "Accepted"
+            updated_trust = trust + 5
+        else:
+            decision = "Ignored"
+            updated_trust = trust - 5
+
+    if updated_trust > 100:
+        updated_trust = 100
+
+    if updated_trust < 0:
+        updated_trust = 0
+
+    return decision, updated_trust
+
+
+def SLA_Old(trust, delta):
     decision = ""
     updated_trust = 0.0
 
@@ -58,8 +107,3 @@ def SLA(trust, delta):
                 updated_trust = trust
     
     return decision, updated_trust
-
-
-# x = json.dumps(SLA(0.6, 16))
-
-# print(x)

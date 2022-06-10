@@ -6,24 +6,18 @@ Dict.update({tuple((0.5, 0.6)) : lambda d: d <=10})
 Dict.update({tuple((0.2, 0.4)) : lambda d: d <=7})
 Dict.update({tuple((0.0, 0.1)) : lambda d: d <=3})
 
-# print(Dict)
-tr = 0.6
-# print(type(tr))
-delt = 12
+def check(tr, delt):
+    # print(Dict)
 
-# if tr in Dict.keys:
-#     print("yes")
-# else:
-#     print("no")
-res = None
-bol = None
-for idx, ele in enumerate(Dict.keys()):
-    if ele[0] <= tr  and tr <= ele[1]:
-        res = idx
-        x = Dict[ele]
-        bol = x(delt)
-        break
+    res = None
+    bol = None
+    for idx, ele in enumerate(Dict.keys()):
+        if ele[0] <= tr  and tr <= ele[1]:
+            res = idx
+            x = Dict[ele]
+            bol = x(delt)
+            break
+    return res, bol
 
-print("index ", res)
 
-print("decision ", bol)
+print(check(0.5, 80))

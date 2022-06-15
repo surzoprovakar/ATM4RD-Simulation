@@ -1,10 +1,10 @@
 Rules = {}
 
-Rules.update({tuple((90, 100)) : lambda d: d <=20})
-Rules.update({tuple((65, 89)) : lambda d: d <=15})
-Rules.update({tuple((50, 64)) : lambda d: d <=12})
-Rules.update({tuple((25, 49)) : lambda d: d <=8})
-Rules.update({tuple((0, 24)) : lambda d: d <=5})
+Rules.update({tuple((90, 100)) : lambda d: d <= 12})
+Rules.update({tuple((65, 89)) : lambda d: d <= 10})
+Rules.update({tuple((50, 64)) : lambda d: d <= 8})
+Rules.update({tuple((25, 49)) : lambda d: d <= 5})
+Rules.update({tuple((0, 24)) : lambda d: d <= 2})
 
 
 def sla(trust, delta):

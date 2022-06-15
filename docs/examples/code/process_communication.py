@@ -29,19 +29,17 @@ Example By:
 """
 import random
 import time
+
+from cairo import Region
 from helper_methods import *
 from sla_script import *
 
 import simpy
 
 mode = 0
-count = 1
-interval = 60
 RANDOM_SEED = 42
-SIM_TIME = 3000
+SIM_TIME = 300
 
-last_requester = ""
-last_req_value = "" 
 
 
 class BroadcastPipe(object):
@@ -81,8 +79,6 @@ class BroadcastPipe(object):
 
 def message_generator(name, env, out_pipe):
     """A process which randomly generates messages."""
-    global count
-    global interval
     while True:
         # wait for next transmission
         # yield env.timeout(random.randint(6, 10))
@@ -95,28 +91,28 @@ def message_generator(name, env, out_pipe):
         # in the pipe first and then message_consumer gets from pipe,
         # the event.triggered will be True in the other order it will be
         # False
-        if count % interval == 0:
-            val = random.randint(50, 60)
-            interval -= 2
-            if interval < 3:
-                interval = 60
-        else:
-            val = random.randint(1, 20)
         
-        count += 1
-        # print('Count = ', count)
-    
-        msg = (env.now, '%s sends %d at time %d' % (name, val, env.now))
+        opt = ""
+        toss = random.randint(0, 3)
+        val = random.randint(1, 15)
+        
+        if toss == 0:
+            opt = "Dec"
+        else:
+            opt = "Inc"
+
+        msg = (env.now, '%s sends %d at time %d as %s' % (name, val, env.now, opt))
         out_pipe.put(msg)
 
 
 def message_consumer(name, env, in_pipe, value, trust_dict, c, conn):
     """A process which consumes messages."""
-    global last_requester, last_req_value
+    
     while True:
         # Get event for message pipe
         msg = yield in_pipe.get()
 
+        #region Comment
         # if msg[0] < env.now:
         #     # if message was already put into pipe, then
         #     # message_consumer was late getting to it. Depending on what
@@ -129,63 +125,66 @@ def message_consumer(name, env, in_pipe, value, trust_dict, c, conn):
         #     # message_consumer is synchronized with message_generator
         #     print('at time %d: %s received message: %s.' %
         #           (env.now, name, msg[1]))
+        #endregion
+
         split = msg[1].split(" ")
         current_value = value
         requester = split[1]
         req_value = split[3]
         req_time = split[6]
+        opt_type = split[8]
         receive_time = env.now
-        last_requester = requester
-        last_req_value = req_value
-        if (name[8] != requester):
+        
+
+        if mode == 1:
+            # Simulation with trust
+            trust = trust_dict[requester]
+            req_trust = trust
             # delta = abs(int(req_value) - value)
-            # trust = trust_dict[requester]
+            # time_freq = env.now - int(req_time)
 
-            # decision = ""
+            # decision, up_trust = SLA_Old(float(trust), delta) 
+            decision, up_trust = sla(trust, int(req_value)) 
 
-            # if delta <= 10 and trust >= 0.5 and (env.now - int(req_time)) <= 15:
-            #     decision = "Accepted"
-            #     value = int(req_value)
-            #     trust_dict[requester] += 0.1
-            # else:
-            #     decision = "Ignored"
-            #     trust_dict[requester] -= 0.1
+            
+            if decision == "Accepted":
+                if opt_type == "Inc":
+                    value += int(req_value)
+                else:
+                    if value >= int(req_value):
+                        value -= int(req_value)
+                    else:
+                        decision = "Ignored"
+                        up_trust -= 10
 
-            if mode == 1:
-                # Simulation with trust
-                trust = trust_dict[requester]
-                req_trust = trust
-                delta = abs(int(req_value) - value)
-                # time_freq = env.now - int(req_time)
+            trust_dict[requester] = up_trust
 
-                # decision, up_trust = SLA_Old(float(trust), delta) 
-                decision, up_trust = sla(trust, delta) 
+            print('%s| Current Trust %f' %(msg[1], trust))
+            print('%s received message at time %d' %(name, env.now))
+            print('Type %s| Decision %s| Updated Trust %f' %(opt_type, decision, trust_dict[requester]))
+            print(trust_dict)
+            print('Final Value %s' %(value))
+            print('\n')
 
-                trust_dict[requester] = up_trust
-                if decision == "Accepted":
-                    value = int(req_value)
-
-                print('%s| Current Trust %f' %(msg[1], trust))
-                print('%s received message at time %d' %(name, env.now))
-                print('Delta %d| Decision %s| Updated Trust %f' %(delta, decision, trust_dict[requester]))
-                print(trust_dict)
-                print('Final Value %s' %(value))
-                print('\n')
-
-                db_insert(c, conn, requester, current_value, req_value, str(delta),
-                req_trust, up_trust, req_time, receive_time, decision, value)
+            db_insert(c, conn, requester, current_value, req_value, opt_type,
+            req_trust, up_trust, req_time, receive_time, decision, value)
+        else:
+            # Simulation without trust
+            if opt_type == "Inc":
+                value += int(req_value)
             else:
-                # Simulation without trust
-                delta = abs(int(req_value) - value)
-                decision = "Accepted"
-                value = int(req_value)
-                print('%s received message at time %d' %(name, env.now))
-                print('Merged Value %s' %(value))
-                print('\n')
+                if value >= int(req_value):
+                    value -= int(req_value)
+            decision = "Accepted"
+            
+            print('%s received message at time %d' %(name, env.now))
+            print('Merged Value %s' %(value))
+            print('\n')
 
-                db_insert(c, conn, requester, current_value, req_value, str(delta),
-                "", "", req_time, receive_time, decision, value)
+            db_insert(c, conn, requester, current_value, req_value, opt_type,
+            "", "", req_time, receive_time, decision, value)
 
+            # region txt file
             # fileName.write('%s| Current Trust %f\n' %(msg[1], trust))
             # fileName.write('%s received message at time %d\n' %(name, env.now))
             # fileName.write('Delta %d| Decision %s| Updated Trust %f\n' %(delta, decision, trust_dict[requester]))
@@ -197,6 +196,7 @@ def message_consumer(name, env, in_pipe, value, trust_dict, c, conn):
             # print('\n')
             # fileName.write('Self Generated Value = %s\n' %(req_value))
             # fileName.write('\n')
+            #endregion
 
 
         time.sleep(0.5)
@@ -213,6 +213,8 @@ cA, connA, cB, connB, cC, connC, cD, connD = db_generatoor()
 
 print('\nProcess communication\n')
 random.seed(RANDOM_SEED)
+
+# region One to One communication
 # env = simpy.Environment()
 
 # # For one-to-one or many-to-one type pipes, use Store
@@ -225,6 +227,8 @@ random.seed(RANDOM_SEED)
 
 # For one-to many use BroadcastPipe
 # (Note: could also be used for one-to-one,many-to-one or many-to-many)
+#endregion
+
 env = simpy.Environment()
 bc_pipe = BroadcastPipe(env)
 
@@ -233,12 +237,11 @@ env.process(message_generator('Replica B', env, bc_pipe))
 env.process(message_generator('Replica C', env, bc_pipe))
 env.process(message_generator('Replica D', env, bc_pipe))
 
-env.process(message_consumer('Replica A', env, bc_pipe.get_output_connA(), 0, {'B' : 50, 'C' : 50, 'D' : 50}, cA, connA))
-env.process(message_consumer('Replica B', env, bc_pipe.get_output_connA(), 0, {'A' : 50, 'C' : 50, 'D' : 50}, cB, connB))
-env.process(message_consumer('Replica C', env, bc_pipe.get_output_connA(), 0, {'A' : 50, 'B' : 50, 'D' : 50}, cC, connC))
-env.process(message_consumer('Replica D', env, bc_pipe.get_output_connA(), 0, {'A' : 50, 'B' : 50, 'C' : 50}, cD, connD))
+env.process(message_consumer('Replica A', env, bc_pipe.get_output_connA(), 0, {'A' : 50, 'B' : 50, 'C' : 50, 'D' : 50}, cA, connA))
+env.process(message_consumer('Replica B', env, bc_pipe.get_output_connA(), 0, {'A' : 50, 'B' : 50, 'C' : 50, 'D' : 50}, cB, connB))
+env.process(message_consumer('Replica C', env, bc_pipe.get_output_connA(), 0, {'A' : 50, 'B' : 50, 'C' : 50, 'D' : 50}, cC, connC))
+env.process(message_consumer('Replica D', env, bc_pipe.get_output_connA(), 0, {'A' : 50, 'B' : 50, 'C' : 50, 'D' : 50}, cD, connD))
 
 # print('\nOne-to-many pipe communication\n')
 env.run(until=SIM_TIME)
 
-print('Last Requester %s | Self Generated Value = %s\n' %(last_requester, last_req_value))

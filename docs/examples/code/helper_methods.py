@@ -9,7 +9,7 @@ def db_generatoor():
     cA.execute('''
             CREATE TABLE IF NOT EXISTS sync_history
             ([requester] TEXT, [current_value] TEXT, 
-            [req_value] TEXT, [delta] TEXT, [req_trust] TEXT, 
+            [req_value] TEXT, [type] TEXT, [req_trust] TEXT, 
             [updated_trust] TEXT, [req_time] TEXT, 
             [receive_time] TEXT, [decision] TEXT, [final_value] TEXT)
             ''')
@@ -21,7 +21,7 @@ def db_generatoor():
     cB.execute('''
             CREATE TABLE IF NOT EXISTS sync_history
             ([requester] TEXT, [current_value] TEXT, 
-            [req_value] TEXT, [delta] TEXT, [req_trust] TEXT, 
+            [req_value] TEXT, [type] TEXT, [req_trust] TEXT, 
             [updated_trust] TEXT, [req_time] TEXT, 
             [receive_time] TEXT, [decision] TEXT, [final_value] TEXT)
             ''')
@@ -33,7 +33,7 @@ def db_generatoor():
     cC.execute('''
             CREATE TABLE IF NOT EXISTS sync_history
             ([requester] TEXT, [current_value] TEXT, 
-            [req_value] TEXT, [delta] TEXT, [req_trust] TEXT, 
+            [req_value] TEXT, [type] TEXT, [req_trust] TEXT, 
             [updated_trust] TEXT, [req_time] TEXT, 
             [receive_time] TEXT, [decision] TEXT, [final_value] TEXT)
             ''')
@@ -45,7 +45,7 @@ def db_generatoor():
     cD.execute('''
             CREATE TABLE IF NOT EXISTS sync_history
             ([requester] TEXT, [current_value] TEXT, 
-            [req_value] TEXT, [delta] TEXT, [req_trust] TEXT, 
+            [req_value] TEXT, [type] TEXT, [req_trust] TEXT, 
             [updated_trust] TEXT, [req_time] TEXT, 
             [receive_time] TEXT, [decision] TEXT, [final_value] TEXT)
             ''')
@@ -54,16 +54,16 @@ def db_generatoor():
     return cA, connA, cB, connB, cC, connC, cD, connD
 
 
-def db_insert(c, conn, requester, current_value, req_value, delta,
+def db_insert(c, conn, requester, current_value, req_value, type,
         req_trust, updated_trust, req_time, receive_time, decision, final_value):
     c.execute('''
           INSERT OR REPLACE INTO sync_history (requester, current_value,
-          req_value, delta, req_trust, updated_trust, req_time,
+          req_value, type, req_trust, updated_trust, req_time,
           receive_time, decision, final_value)
 
                 VALUES
                 (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ''', (requester, current_value, req_value, delta, req_trust,
+          ''', (requester, current_value, req_value, type, req_trust,
           updated_trust, req_time, receive_time, decision, final_value))
 
     conn.commit()
